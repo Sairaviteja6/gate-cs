@@ -7,7 +7,17 @@ const supabaseUrl = 'https://fqzxkmzotgvpmauqyvfg.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxenhrbXpvdGd2cG1hdXF5dmZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMTc1MjMsImV4cCI6MjA5MjU5MzUyM30.cvsmtSH3Qs2zT_xou3fGl5NLx2M50RxPO9nhVmfuGws';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+const ALLOWED_USERS = {
+  'sindhu': { password: 'password123', syncCode: 'SINDHU' },
+  'ravi': { password: 'password123', syncCode: 'RAVI' }
+};
+
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
   const [activeMonth, setActiveMonth] = useState('june');
   const [activeTab, setActiveTab] = useState('roadmap'); // roadmap, resources, sync
   const [tasks, setTasks] = useState({});
@@ -18,16 +28,40 @@ function App() {
   const [syncStatus, setSyncStatus] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Initialize data on mount
+  // Check for existing session
   useEffect(() => {
-    const defaultData = generateRoadmapData();
-    let savedCode = localStorage.getItem('gateSyncCode');
-    
-    if (!savedCode) {
-      savedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      localStorage.setItem('gateSyncCode', savedCode);
+    const savedSession = localStorage.getItem('gateSession');
+    if (savedSession && ALLOWED_USERS[savedSession]) {
+      setIsAuthenticated(true);
+      setSyncCode(ALLOWED_USERS[savedSession].syncCode);
     }
-    setSyncCode(savedCode);
+  }, []);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const user = username.toLowerCase().trim();
+    if (ALLOWED_USERS[user] && ALLOWED_USERS[user].password === password) {
+      setIsAuthenticated(true);
+      setSyncCode(ALLOWED_USERS[user].syncCode);
+      localStorage.setItem('gateSession', user);
+      setLoginError('');
+    } else {
+      setLoginError('Invalid username or password');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('gateSession');
+    setUsername('');
+    setPassword('');
+  };
+
+  // Initialize data on mount when authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    const defaultData = generateRoadmapData();
 
     const savedData = localStorage.getItem('gateRoadmapData_cs');
     if (savedData) {
@@ -45,7 +79,7 @@ function App() {
     } else {
       setTasks(defaultData);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Save to local storage whenever tasks change and trigger background sync
   useEffect(() => {
@@ -135,6 +169,47 @@ function App() {
     });
   }, [tasks, activeMonth]);
 
+  if (!isAuthenticated) {
+    return (
+      <div className="app-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '1rem' }}>
+        <div className="glass-panel animate-fade-in" style={{ padding: '3rem', maxWidth: '400px', width: '100%', textAlign: 'center' }}>
+          <div style={{ marginBottom: '2rem' }}>
+            <div className="logo" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
+              <span className="logo-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+              </span>
+            </div>
+            <h2>GATE CS <span className="gradient-text">Mastery</span></h2>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Private access restricted to authorized users.</p>
+          </div>
+          
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <input 
+              type="text" 
+              placeholder="Username" 
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'white', outline: 'none' }}
+              required
+            />
+            <input 
+              type="password" 
+              placeholder="Password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'white', outline: 'none' }}
+              required
+            />
+            {loginError && <div style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{loginError}</div>}
+            <button type="submit" className="glow-btn" style={{ marginTop: '0.5rem', width: '100%' }}>
+              Login
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-wrapper">
       <nav className="navbar">
@@ -165,7 +240,12 @@ function App() {
               Cloud Sync
             </div>
           </div>
-          <button className="glow-btn">Target: Rank &lt;50</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button className="glow-btn">Target: Rank &lt;50</button>
+            <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>
+              Logout
+            </button>
+          </div>
         </div>
       </nav>
 
