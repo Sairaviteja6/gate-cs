@@ -9,7 +9,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const ALLOWED_USERS = {
   'sindhu': { password: 'password123', syncCode: 'SINDHU' },
-  'ravi': { password: 'password123', syncCode: 'RAVI' }
+  'ravi': { password: '12345', syncCode: 'RAVI' },
+  'sadiya': { password: '12345', syncCode: 'SADIYA' }
 };
 
 function App() {
